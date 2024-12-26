@@ -1,48 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_projectmp/homepage.dart';
-import 'package:flutter_application_projectmp/lupapasswordpage.dart';
-import 'package:flutter_application_projectmp/registerpage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiketBus/models/api_response.dart';
+import 'package:tiketBus/registerpage.dart';
+import 'package:tiketBus/services/user_service.dart';
+
+import 'constant.dart';
+import 'homepage.dart';
+import 'models/user.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  String? _username;
-  String? _password;
+  final GlobalKey<FormState> formkey = GlobalKey<FormState>();
+  final TextEditingController txtEmail = TextEditingController();
+  final TextEditingController txtPassword = TextEditingController();
+
+  bool loading = false;
+
+  void _loginUser() async {
+    ApiResponse response = await login(txtEmail.text, txtPassword.text);
+
+    if (response.error == null && response.data != null) {
+      // Login berhasil
+      final responseData = response.data as Map<String, dynamic>;
+
+      // Simpan data user ke SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', responseData['token'] ?? '');
+      if (responseData['user'] != null) {
+        await prefs.setInt('id', responseData['user']['id'] ?? 0);
+        await prefs.setString('name', responseData['user']['name'] ?? '');
+        await prefs.setString('email', responseData['user']['email'] ?? '');
+        await prefs.setString('phone', responseData['user']['phone'] ?? '');
+      }
+
+      // Navigate to HomePage
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => HomePage()),
+            (route) => false);
+      }
+    } else {
+      setState(() {
+        loading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${response.error}')),
+      );
+    }
+  }
+
+  void _saveAndRedirectToHome(User user) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('token', user.token ?? '');
+    await prefs.setInt('id', user.id ?? 0);
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => HomePage()), (route) => false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            const SizedBox(width: 8),
-            Image.asset("assets/images/gambar2.png", height: 50),
-            const Text(
-              "THE_BUZEE.COM",
-              style:
-                  TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          ],
-        ),
-      ),
       body: Column(
         children: [
-          // Top section: Background image
+          // Top section: Logo or image
           Expanded(
             flex: 1,
-            child: Center(
-              child: Image.asset(
-                  'assets/images/gambar1.png', // Path to your background image
-                  width: double.infinity,
-                  fit: BoxFit.cover),
+            child: Container(
+              color: Colors.blue, // Background color for the top section
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Image.asset(
+                        'assets/images/gambar2.png', // Path to your image asset
+                        fit: BoxFit.cover, // Make the image fill the container
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           // Bottom section: Login form
@@ -54,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
               child: SingleChildScrollView(
                 child: Center(
                   child: Form(
-                    key: _formKey,
+                    key: formkey,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
@@ -76,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'Hi there! Nice to see you again.',
+                            'Please enter your credentials to continue',
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.black,
@@ -84,108 +127,68 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity, // Full width for input fields
-                          child: TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Username',
-                              labelStyle: TextStyle(color: Colors.black),
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide(color: Colors.black),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Silakan masukkan username';
-                              }
-                              return null;
-                            },
-                            onSaved: (value) {
-                              _username = value;
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity, // Full width for input fields
-                          child: TextFormField(
+
+                        // Email field
+                        TextFormField(
+                            keyboardType: TextInputType.emailAddress,
+                            controller: txtEmail,
+                            decoration: inputDecoration('Email'),
+                            validator: (val) =>
+                                val!.length < 8 ? 'Invalid email' : null),
+                        const SizedBox(height: 20),
+
+                        // Password field
+                        TextFormField(
+                            controller: txtPassword,
+                            decoration: inputDecoration('Password'),
                             obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                              labelStyle: TextStyle(color: Colors.black),
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide(color: Colors.black),
+                            validator: (val) => val!.isEmpty
+                                ? 'Required at least 8 chars'
+                                : null),
+                        const SizedBox(height: 20),
+
+                        // Login button
+                        loading
+                            ? Center(
+                                child: CircularProgressIndicator(),
+                              )
+                            : ElevatedButton(
+                                onPressed: () {
+                                  if (formkey.currentState!.validate()) {
+                                    setState(() {
+                                      loading = true;
+                                      _loginUser();
+                                    });
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(
+                                      50), // Stretch button
+                                ),
+                                child: const Text('Login'),
                               ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Silakan masukkan password';
-                              }
-                              return null;
-                            },
-                            onSaved: (value) {
-                              _password = value;
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity, // Full width for button
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                _formKey.currentState!.save();
-                                // Integrate sign in with homepage navigation
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const HomePage(),
-                                  ),
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 16,
-                              ),
-                              textStyle: const TextStyle(fontSize: 18),
-                            ),
-                            child: const Text('Sign In'),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+
+                        const SizedBox(height: 20),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Belum punya akun?',
-                                style: TextStyle(color: Colors.black)),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
+                            const Text("Don't have an account? "),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (context) => Registerpage(),
-                                  ),
+                                      builder: (context) => Registerpage()),
                                 );
                               },
-                              child: const Text('Daftar',
-                                  style: TextStyle(color: Colors.red)),
+                              child: const Text(
+                                'Sign Up',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const LupapasswordPage(),
-                              ),
-                            );
-                          },
-                          child: const Text('Lupa Password',
-                              style: TextStyle(color: Colors.red)),
                         ),
                       ],
                     ),

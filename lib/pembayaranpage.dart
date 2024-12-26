@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_application_projectmp/ticketpage.dart';
+import 'package:tiketBus/ticketpage.dart';
 
 class PaymentScreen extends StatelessWidget {
   final String orderCode;

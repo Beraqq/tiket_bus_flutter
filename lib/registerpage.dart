@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_projectmp/loginpage.dart';
+import 'package:tiketBus/loginpage.dart';
+import 'package:tiketBus/models/api_response.dart';
+import 'package:tiketBus/services/user_service.dart';
+import 'package:tiketBus/models/user.dart';
 
 class Registerpage extends StatefulWidget {
   const Registerpage({super.key});
@@ -10,15 +13,77 @@ class Registerpage extends StatefulWidget {
 
 class _RegisterpageState extends State<Registerpage> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _loading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
+  void _registerUser() async {
+    if (_formKey.currentState!.validate()) {
+      if (_passwordController.text != _confirmPasswordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kata Sandi tidak cocok'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _loading = true;
+      });
+
+      ApiResponse response = await register(
+          _nameController.text,
+          _phoneController.text,
+          _emailController.text,
+          _passwordController.text);
+
+      setState(() {
+        _loading = false;
+      });
+
+      if (response.error == null) {
+        // Registrasi berhasil
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registrasi berhasil. Silakan login.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Arahkan ke halaman login
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
+        }
+      } else {
+        // Registrasi gagal
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${response.error}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
 
   @override
   void dispose() {
+    _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -83,6 +148,28 @@ class _RegisterpageState extends State<Registerpage> {
                   ),
                   const SizedBox(height: 16.0),
                   const Text(
+                    'Nama Lengkap',
+                    style: TextStyle(
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8.0),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      hintText: 'Masukan Nama Lengkap',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Nama Lengkap tidak boleh kosong';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16.0),
+                  const Text(
                     'Nomor Ponsel',
                     style: TextStyle(
                       fontSize: 18.0,
@@ -136,14 +223,69 @@ class _RegisterpageState extends State<Registerpage> {
                   const SizedBox(height: 8.0),
                   TextFormField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
                       hintText: 'Masukan Kata Sandi',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Kata Sandi tidak boleh kosong';
+                      }
+                      if (value.length < 6) {
+                        return 'Kata Sandi minimal 6 karakter';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16.0),
+                  const Text(
+                    'Konfirmasi Kata Sandi',
+                    style: TextStyle(
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8.0),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      hintText: 'Masukan Ulang Kata Sandi',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Konfirmasi Kata Sandi tidak boleh kosong';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Kata Sandi tidak cocok';
                       }
                       return null;
                     },
@@ -157,16 +299,12 @@ class _RegisterpageState extends State<Registerpage> {
                           backgroundColor: Colors.blue,
                         ),
                         onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            // Navigate to login page
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => LoginPage()),
-                            );
-                          }
+                          _registerUser();
                         },
-                        child: const Text('Daftar'),
+                        child: _loading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
+                            : const Text('Daftar'),
                       ),
                     ),
                   ),
@@ -180,9 +318,9 @@ class _RegisterpageState extends State<Registerpage> {
                         );
                       },
                       child: const Text(
-                        'Sudah Punya Akun The_Buzee.com? Masuk',
+                        'Sudah punya akun? Sign in',
                         style: TextStyle(
-                          color: Colors.red,
+                          color: Color.fromARGB(255, 114, 195, 253),
                         ),
                       ),
                     ),

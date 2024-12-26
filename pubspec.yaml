@@ -1,4 +1,4 @@
-name: flutter_application_projectmp
+name: tiketBus
 description: "A new Flutter project."
 publish_to: "none"
 version: 0.1.0
@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  http: ^1.2.2
+  intl: ^0.20.1
+  shared_preferences: ^2.3.4
 qr_flutter: ^4.0.0
 
 dev_dependencies:

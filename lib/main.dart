@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_projectmp/loginpage.dart';
+import 'package:tiketBus/loading.dart';
+import 'package:tiketBus/loginpage.dart';
 
 void main() {
   runApp(const MyApp());

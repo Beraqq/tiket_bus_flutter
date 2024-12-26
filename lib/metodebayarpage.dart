@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_projectmp/pembayaranpage.dart';
+import 'package:tiketBus/pembayaranpage.dart';
 
 class PaymentPage extends StatefulWidget {
   final String type;

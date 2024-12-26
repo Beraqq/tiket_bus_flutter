@@ -1,11 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_projectmp/aboutpage.dart';
-import 'package:flutter_application_projectmp/helpPage.dart';
-import 'package:flutter_application_projectmp/kelolaprofile.dart';
-import 'package:flutter_application_projectmp/loginpage.dart';
+import 'package:tiketBus/aboutpage.dart';
+import 'package:tiketBus/helpPage.dart';
+import 'package:tiketBus/kelolaprofile.dart';
+import 'package:tiketBus/loginpage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiketBus/services/user_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String name = '';
+  String email = '';
+  String phone = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      name = prefs.getString('name') ?? 'Nama Pengguna';
+      email = prefs.getString('email') ?? 'email@example.com';
+      phone = prefs.getString('phone') ?? '0812345678';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,30 +77,30 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     // User Details
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Ridwan Setiawan',
-                            style: TextStyle(
+                            name,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'ridwan@gmail.com',
-                            style: TextStyle(
+                            email,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            '089624643527',
-                            style: TextStyle(
+                            phone,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                             ),
@@ -130,7 +156,8 @@ class ProfileScreen extends StatelessWidget {
                     'Kelola Profile',
                     () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const EditProfileScreen()),
                     ),
                     Icons.person_outline,
                   ),
@@ -140,7 +167,8 @@ class ProfileScreen extends StatelessWidget {
                     'Tentang The Buzee.com',
                     () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const AboutPage()),
+                      MaterialPageRoute(
+                          builder: (context) => const AboutPage()),
                     ),
                     Icons.info_outline,
                   ),
@@ -160,13 +188,14 @@ class ProfileScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         showDialog(
                           context: context,
                           builder: (BuildContext context) {
                             return AlertDialog(
                               title: const Text('Konfirmasi'),
-                              content: const Text('Apakah Anda yakin ingin keluar?'),
+                              content:
+                                  const Text('Apakah Anda yakin ingin keluar?'),
                               actions: [
                                 TextButton(
                                   onPressed: () {
@@ -175,15 +204,35 @@ class ProfileScreen extends StatelessWidget {
                                   child: const Text('Batal'),
                                 ),
                                 TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(); // Close the dialog
-                                  Navigator.of(context).pushAndRemoveUntil(
-                                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                                    (Route<dynamic> route) => false,
-                                  );
-                                },
-                                child: const Text('Ya'),
-                              ),
+                                  onPressed: () async {
+                                    // Panggil fungsi logout
+                                    bool success = await logout();
+                                    if (success) {
+                                      // Hapus semua halaman dan kembali ke login
+                                      if (mounted) {
+                                        Navigator.of(context)
+                                            .pushAndRemoveUntil(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const LoginPage(),
+                                          ),
+                                          (Route<dynamic> route) => false,
+                                        );
+                                      }
+                                    } else {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Gagal logout. Silakan coba lagi.'),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: const Text('Ya'),
+                                ),
                               ],
                             );
                           },
@@ -197,7 +246,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                       child: const Text(
-                        'Keluar Akun',
+                        'Log Out',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -239,4 +288,3 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
-

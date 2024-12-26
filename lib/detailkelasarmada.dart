@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_projectmp/bookingpage.dart';
+import 'package:tiketBus/bookingpage.dart';
 
 class ArmadaDetailPage extends StatelessWidget {
   final String type;
