@@ -1,70 +1,74 @@
 import 'dart:convert';
 
 class Payment {
-  final int? id;
-  final int? bookingId;
+  final String? paymentId;
+  final String? bookingId;
   final double? amount;
   final String? method;
-  final String? virtualAccount;
-  final String? paymentProof;
-  final DateTime? paymentDeadline;
   final String? status;
-  final Map<String, dynamic>? paymentDetails;
   final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final String? virtualAccount;
+  final String? paymentCode;
+  final DateTime? paymentDeadline;
 
   Payment({
-    this.id,
+    this.paymentId,
     this.bookingId,
     this.amount,
     this.method,
-    this.virtualAccount,
-    this.paymentProof,
-    this.paymentDeadline,
     this.status,
-    this.paymentDetails,
     this.createdAt,
-    this.updatedAt,
+    this.virtualAccount,
+    this.paymentCode,
+    this.paymentDeadline,
   });
 
   factory Payment.fromJson(Map<String, dynamic> json) {
     return Payment(
-      id: json['id'],
+      paymentId: json['payment_id'],
       bookingId: json['booking_id'],
       amount: json['amount']?.toDouble(),
       method: json['method'],
-      virtualAccount: json['virtual_account'],
-      paymentProof: json['payment_proof'],
-      paymentDeadline: json['payment_deadline'] != null
-          ? DateTime.parse(json['payment_deadline'])
-          : null,
       status: json['status'],
-      paymentDetails: json['payment_details'] != null
-          ? jsonDecode(json['payment_details'])
-          : null,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
+      virtualAccount: json['virtual_account'],
+      paymentCode: json['payment_code'],
+      paymentDeadline: json['payment_deadline'] != null
+          ? DateTime.parse(json['payment_deadline'])
           : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'payment_id': paymentId,
       'booking_id': bookingId,
       'amount': amount,
       'method': method,
-      'virtual_account': virtualAccount,
-      'payment_proof': paymentProof,
-      'payment_deadline': paymentDeadline?.toIso8601String(),
       'status': status,
-      'payment_details':
-          paymentDetails != null ? jsonEncode(paymentDetails) : null,
       'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+      'virtual_account': virtualAccount,
+      'payment_code': paymentCode,
+      'payment_deadline': paymentDeadline?.toIso8601String(),
     };
+  }
+
+  bool isValid() {
+    if (paymentDeadline == null) return false;
+    return DateTime.now().isBefore(paymentDeadline!);
+  }
+
+  bool isCompleted() {
+    return status?.toLowerCase() == 'completed';
+  }
+
+  bool isPending() {
+    return status?.toLowerCase() == 'pending';
+  }
+
+  bool isFailed() {
+    return status?.toLowerCase() == 'failed';
   }
 }

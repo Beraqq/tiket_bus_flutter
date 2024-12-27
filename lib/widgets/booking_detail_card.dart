@@ -20,7 +20,7 @@ class BookingDetailCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Booking ID: ${booking.id}',
+              'Booking ID: ${booking.bookingId}',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -44,9 +44,12 @@ class BookingDetailCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            // TODO: Add schedule details when available
             _buildDetailRow(
-                'Tanggal', DateFormat('dd MMMM yyyy').format(DateTime.now())),
+              'Tanggal',
+              booking.paymentDeadline != null
+                  ? DateFormat('dd MMMM yyyy').format(booking.paymentDeadline!)
+                  : 'Tidak tersedia',
+            ),
             const SizedBox(height: 8),
             _buildDetailRow(
                 'Rute', 'Jakarta - Bandung'), // Replace with actual data

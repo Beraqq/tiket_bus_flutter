@@ -7,7 +7,7 @@ import '../constant.dart';
 
 class PaymentService {
   Future<ApiResponse> createPayment({
-    required int bookingId,
+    required String bookingId,
     required double amount,
     required String method,
   }) async {
@@ -17,12 +17,17 @@ class PaymentService {
       final token = prefs.getString('token');
 
       if (token == null) {
-        apiResponse.error = 'Not authenticated';
+        apiResponse.error = unauthorized;
         return apiResponse;
       }
 
+      print('Creating payment with:');
+      print('Booking ID: $bookingId');
+      print('Amount: $amount');
+      print('Method: $method');
+
       final response = await http.post(
-        Uri.parse('$baseURL/payments'),
+        Uri.parse('$paymentURL/create'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -35,23 +40,28 @@ class PaymentService {
         }),
       );
 
+      print('Payment response status: ${response.statusCode}');
+      print('Payment response body: ${response.body}');
+
       switch (response.statusCode) {
-        case 201:
-          apiResponse.data = Payment.fromJson(jsonDecode(response.body));
+        case 200:
+          final responseData = jsonDecode(response.body);
+          apiResponse.data = Payment.fromJson(responseData);
           break;
         case 401:
-          apiResponse.error = 'Unauthorized';
+          apiResponse.error = unauthorized;
           break;
-        case 422:
-          final errors = jsonDecode(response.body)['errors'];
-          apiResponse.error = errors[errors.keys.first][0];
+        case 400:
+          final responseData = jsonDecode(response.body);
+          apiResponse.error = responseData['message'] ?? 'Bad Request';
           break;
         default:
-          apiResponse.error = 'Failed to create payment';
+          apiResponse.error = somethingWentWrong;
           break;
       }
     } catch (e) {
-      apiResponse.error = 'Server error: $e';
+      print('Error in createPayment: $e');
+      apiResponse.error = serverError;
     }
     return apiResponse;
   }
@@ -140,6 +150,43 @@ class PaymentService {
       }
     } catch (e) {
       apiResponse.error = 'Server error: $e';
+    }
+    return apiResponse;
+  }
+
+  Future<ApiResponse> checkPaymentStatus(String bookingId) async {
+    ApiResponse apiResponse = ApiResponse();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        apiResponse.error = unauthorized;
+        return apiResponse;
+      }
+
+      final response = await http.get(
+        Uri.parse('$paymentURL/status/$bookingId'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      switch (response.statusCode) {
+        case 200:
+          final responseData = jsonDecode(response.body);
+          apiResponse.data = Payment.fromJson(responseData);
+          break;
+        case 401:
+          apiResponse.error = unauthorized;
+          break;
+        default:
+          apiResponse.error = somethingWentWrong;
+          break;
+      }
+    } catch (e) {
+      apiResponse.error = serverError;
     }
     return apiResponse;
   }

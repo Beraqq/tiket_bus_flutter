@@ -1,59 +1,54 @@
 class Booking {
-  final int? id;
-  final int? userId;
+  final String? bookingId;
   final String? scheduleId;
   final int? seatNumber;
   final double? totalPrice;
   final String? status;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final DateTime? paymentDeadline;
 
   Booking({
-    this.id,
-    this.userId,
+    this.bookingId,
     this.scheduleId,
     this.seatNumber,
     this.totalPrice,
     this.status,
-    this.createdAt,
-    this.updatedAt,
+    this.paymentDeadline,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
-    try {
-      return Booking(
-        id: json['id'],
-        userId: json['user_id'],
-        scheduleId: json['schedule_id'],
-        seatNumber: json['seat_number'],
-        totalPrice: json['total_price'] is String
-            ? double.tryParse(json['total_price'])
-            : json['total_price']?.toDouble(),
-        status: json['status'],
-        createdAt: json['created_at'] != null
-            ? DateTime.parse(json['created_at'])
-            : null,
-        updatedAt: json['updated_at'] != null
-            ? DateTime.parse(json['updated_at'])
-            : null,
-      );
-    } catch (e) {
-      print('Error parsing Booking JSON: $e');
-      print('JSON data: $json');
-      rethrow;
-    }
+    return Booking(
+      bookingId: json['booking_id'],
+      scheduleId: json['schedule_id'],
+      seatNumber: json['seat_number'],
+      totalPrice: json['total_price']?.toDouble(),
+      status: json['status'],
+      paymentDeadline: json['payment_deadline'] != null
+          ? DateTime.parse(json['payment_deadline'])
+          : null,
+    );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'user_id': userId,
+      'booking_id': bookingId,
       'schedule_id': scheduleId,
       'seat_number': seatNumber,
       'total_price': totalPrice,
       'status': status,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+      'payment_deadline': paymentDeadline?.toIso8601String(),
     };
+  }
+
+  bool isValid() {
+    if (paymentDeadline == null) return false;
+    return DateTime.now().isBefore(paymentDeadline!);
+  }
+
+  bool isPaid() {
+    return status?.toLowerCase() == 'paid';
+  }
+
+  bool isPending() {
+    return status?.toLowerCase() == 'pending';
   }
 }

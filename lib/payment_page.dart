@@ -7,10 +7,12 @@ import 'pages/payment_instruction_page.dart';
 
 class PaymentPage extends StatefulWidget {
   final Booking booking;
+  final VoidCallback onPaymentComplete;
 
   const PaymentPage({
     Key? key,
     required this.booking,
+    required this.onPaymentComplete,
   }) : super(key: key);
 
   @override
@@ -60,7 +62,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       final response = await _paymentService.createPayment(
-        bookingId: widget.booking.id!,
+        bookingId: widget.booking.bookingId!,
         amount: widget.booking.totalPrice!,
         method: selectedPaymentMethod!,
       );
@@ -70,15 +72,16 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PaymentInstructionPage(
-              payment: response.data as Payment,
-              booking: widget.booking,
-            ),
+        widget.onPaymentComplete();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pembayaran berhasil'),
+            backgroundColor: Colors.green,
           ),
         );
+
+        Navigator.of(context).pushReplacementNamed('/home');
       }
     } catch (e) {
       if (mounted) {

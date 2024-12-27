@@ -17,60 +17,40 @@ class BookingService {
       final token = prefs.getString('token');
 
       if (token == null) {
-        apiResponse.error = 'Not authenticated';
+        apiResponse.error = unauthorized;
         return apiResponse;
       }
 
-      final requestBody = {
-        'schedule_id': scheduleId,
-        'seat_number': seatNumber,
-        'status': 'pending',
-        'total_price': totalPrice,
-      };
-
-      print('Request body: $requestBody'); // Debug print
-
       final response = await http.post(
-        Uri.parse('$baseURL/bookings'),
+        Uri.parse('$bookingURL/create'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode(requestBody),
+        body: jsonEncode({
+          'schedule_id': scheduleId,
+          'seat_number': seatNumber,
+          'total_price': totalPrice,
+          'status': 'pending',
+          'payment_deadline':
+              DateTime.now().add(const Duration(minutes: 15)).toIso8601String(),
+        }),
       );
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
       switch (response.statusCode) {
-        case 201:
+        case 200:
           apiResponse.data = Booking.fromJson(jsonDecode(response.body));
           break;
         case 401:
-          apiResponse.error = 'Unauthorized';
-          break;
-        case 422:
-          final responseData = jsonDecode(response.body);
-          if (responseData['errors'] != null) {
-            final firstError = responseData['errors'].values.first;
-            apiResponse.error =
-                firstError is List ? firstError.first : firstError.toString();
-          } else if (responseData['message'] != null) {
-            apiResponse.error = responseData['message'];
-          } else {
-            apiResponse.error = 'Validation error';
-          }
+          apiResponse.error = unauthorized;
           break;
         default:
-          final responseData = jsonDecode(response.body);
-          apiResponse.error =
-              responseData['message'] ?? 'Failed to create booking';
+          apiResponse.error = somethingWentWrong;
           break;
       }
     } catch (e) {
-      print('Error creating booking: $e');
-      apiResponse.error = 'Server error: $e';
+      apiResponse.error = serverError;
     }
     return apiResponse;
   }
@@ -155,7 +135,39 @@ class BookingService {
     return apiResponse;
   }
 
-  Future<ApiResponse> cancelBooking(int bookingId) async {
-    return updateBookingStatus(bookingId, 'canceled');
+  Future<ApiResponse> cancelBooking(String bookingId) async {
+    ApiResponse apiResponse = ApiResponse();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        apiResponse.error = unauthorized;
+        return apiResponse;
+      }
+
+      final response = await http.post(
+        Uri.parse('$bookingURL/cancel/$bookingId'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      switch (response.statusCode) {
+        case 200:
+          apiResponse.data = true;
+          break;
+        case 401:
+          apiResponse.error = unauthorized;
+          break;
+        default:
+          apiResponse.error = somethingWentWrong;
+          break;
+      }
+    } catch (e) {
+      apiResponse.error = serverError;
+    }
+    return apiResponse;
   }
 }

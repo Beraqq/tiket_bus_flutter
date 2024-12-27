@@ -5,8 +5,10 @@ import 'models/schedule.dart';
 import 'models/booking.dart';
 import 'models/api_response.dart';
 import 'services/booking_service.dart';
-import 'services/schedule_service.dart';
 import 'payment_page.dart';
+import 'services/schedule_service.dart';
+import 'models/api_response.dart';
+import 'dart:async';
 
 class BookingConfirmation extends StatefulWidget {
   final String origin;
@@ -37,11 +39,24 @@ class BookingConfirmation extends StatefulWidget {
 class _BookingConfirmationState extends State<BookingConfirmation> {
   bool isLoading = false;
   final BookingService _bookingService = BookingService();
+  Timer? _paymentTimer;
+  String? _bookingId;
 
   @override
   void initState() {
     super.initState();
+    print('Schedule data:');
+    print('Schedule ID: ${widget.schedule.scheduleId}');
+    print('Bus Code: ${widget.schedule.busCode}');
+    print('Route ID: ${widget.schedule.routeId}');
     _checkAvailableSeats();
+  }
+
+  @override
+  void dispose() {
+    _paymentTimer?.cancel();
+    _cancelBookingIfPending();
+    super.dispose();
   }
 
   Future<void> _checkAvailableSeats() async {
@@ -92,36 +107,29 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
     }
   }
 
+  Future<void> _cancelBookingIfPending() async {
+    if (_bookingId != null) {
+      try {
+        print('Attempting to cancel booking: $_bookingId');
+        final response = await _bookingService.cancelBooking(_bookingId!);
+
+        if (response.error != null) {
+          print('Error canceling booking: ${response.error}');
+        } else {
+          print('Booking cancelled successfully');
+        }
+      } catch (e) {
+        print('Error canceling booking: $e');
+      }
+    }
+  }
+
   void _createBooking() async {
     setState(() {
       isLoading = true;
     });
 
     try {
-      final scheduleResponse = await getAvailableSchedules(
-        widget.bus.busCode!,
-        widget.date,
-      );
-
-      if (scheduleResponse.error != null) {
-        throw Exception(scheduleResponse.error);
-      }
-
-      final schedules = scheduleResponse.data as List;
-      final currentSchedule = schedules.firstWhere(
-        (schedule) => schedule['schedule_id'] == widget.schedule.scheduleId,
-        orElse: () => null,
-      );
-
-      if (currentSchedule == null) {
-        throw Exception('Jadwal tidak ditemukan');
-      }
-
-      final availableSeats = currentSchedule['available_seats'] as int;
-      if (availableSeats < widget.seats) {
-        throw Exception('Kursi yang tersedia tidak mencukupi');
-      }
-
       final totalPrice = (widget.bus.pricePerSeat ?? 0) * widget.seats;
       ApiResponse? lastResponse;
 
@@ -149,15 +157,24 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
         }
 
         lastResponse = response;
+        _bookingId = (lastResponse.data as Booking).bookingId;
         print('Booking created successfully for seat: $seatNumber');
       }
 
       if (mounted && lastResponse?.data != null) {
+        _paymentTimer = Timer(const Duration(minutes: 15), () {
+          _cancelBookingIfPending();
+        });
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => PaymentPage(
               booking: lastResponse!.data as Booking,
+              onPaymentComplete: () {
+                _paymentTimer?.cancel();
+                print('Payment completed, timer cancelled');
+              },
             ),
           ),
         );
