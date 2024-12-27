@@ -5,6 +5,7 @@ import 'models/schedule.dart';
 import 'models/booking.dart';
 import 'models/api_response.dart';
 import 'services/booking_service.dart';
+import 'services/schedule_service.dart';
 import 'payment_page.dart';
 
 class BookingConfirmation extends StatefulWidget {
@@ -40,10 +41,55 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
   @override
   void initState() {
     super.initState();
-    print('Schedule data:');
-    print('Schedule ID: ${widget.schedule.scheduleId}');
-    print('Bus Code: ${widget.schedule.busCode}');
-    print('Route ID: ${widget.schedule.routeId}');
+    _checkAvailableSeats();
+  }
+
+  Future<void> _checkAvailableSeats() async {
+    try {
+      final scheduleResponse = await getAvailableSchedules(
+        widget.bus.busCode!,
+        widget.date,
+      );
+
+      if (scheduleResponse.error != null) {
+        throw Exception(scheduleResponse.error);
+      }
+
+      final schedules = scheduleResponse.data as List;
+      final currentSchedule = schedules.firstWhere(
+        (schedule) => schedule['schedule_id'] == widget.schedule.scheduleId,
+        orElse: () => null,
+      );
+
+      if (currentSchedule == null) {
+        throw Exception('Jadwal tidak ditemukan');
+      }
+
+      final availableSeats = currentSchedule['available_seats'] as int;
+      if (availableSeats < widget.seats) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Maaf, kursi yang tersedia tidak mencukupi'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      print('Error checking seats: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Gagal memeriksa ketersediaan kursi: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   void _createBooking() async {
@@ -52,6 +98,30 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
     });
 
     try {
+      final scheduleResponse = await getAvailableSchedules(
+        widget.bus.busCode!,
+        widget.date,
+      );
+
+      if (scheduleResponse.error != null) {
+        throw Exception(scheduleResponse.error);
+      }
+
+      final schedules = scheduleResponse.data as List;
+      final currentSchedule = schedules.firstWhere(
+        (schedule) => schedule['schedule_id'] == widget.schedule.scheduleId,
+        orElse: () => null,
+      );
+
+      if (currentSchedule == null) {
+        throw Exception('Jadwal tidak ditemukan');
+      }
+
+      final availableSeats = currentSchedule['available_seats'] as int;
+      if (availableSeats < widget.seats) {
+        throw Exception('Kursi yang tersedia tidak mencukupi');
+      }
+
       final totalPrice = (widget.bus.pricePerSeat ?? 0) * widget.seats;
       ApiResponse? lastResponse;
 

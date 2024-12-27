@@ -239,21 +239,21 @@ class _HomePageContentState extends State<HomePageContent> {
 
   Future<void> _searchTickets() async {
     if (_formKey.currentState!.validate()) {
-      final seats = int.tryParse(_seatsController.text);
-      if (seats == null || seats <= 0 || seats > 4) {
+      if (selectedClass == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Jumlah kursi tidak valid (1-4)'),
+            content: Text('Pilih kelas armada terlebih dahulu'),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
-      if (selectedClass == null) {
+      final seats = int.tryParse(_seatsController.text);
+      if (seats == null || seats <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Pilih kelas armada terlebih dahulu'),
+            content: Text('Jumlah kursi tidak valid'),
             backgroundColor: Colors.red,
           ),
         );
@@ -347,6 +347,7 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
+  @override
   void dispose() {
     _originController.dispose();
     _destinationController.dispose();
