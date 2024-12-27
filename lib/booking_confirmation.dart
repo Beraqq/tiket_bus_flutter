@@ -130,21 +130,16 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
     });
 
     try {
+      print('=== Starting Booking Process ===');
+      print('Schedule ID: ${widget.schedule.scheduleId}');
+      print('Selected Seats: ${widget.selectedSeats}');
+      print('Total Seats: ${widget.seats}');
+
       final totalPrice = (widget.bus.pricePerSeat ?? 0) * widget.seats;
       ApiResponse? lastResponse;
 
-      print('Attempting to create booking with:');
-      print('Schedule ID: ${widget.schedule.scheduleId}');
-      print('Total Price: $totalPrice');
-      print('Selected Seats: ${widget.selectedSeats}');
-
-      if (widget.schedule.scheduleId == null ||
-          widget.schedule.scheduleId!.isEmpty) {
-        throw Exception('Schedule ID tidak valid');
-      }
-
       for (int seatNumber in widget.selectedSeats) {
-        print('Creating booking for seat: $seatNumber');
+        print('Attempting to book seat: $seatNumber');
 
         final response = await _bookingService.createBooking(
           scheduleId: widget.schedule.scheduleId!,
@@ -158,7 +153,7 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
 
         lastResponse = response;
         _bookingId = (lastResponse.data as Booking).bookingId;
-        print('Booking created successfully for seat: $seatNumber');
+        print('Successfully booked seat: $seatNumber');
       }
 
       if (mounted && lastResponse?.data != null) {
@@ -182,11 +177,11 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
         throw Exception('No booking data received');
       }
     } catch (e) {
-      print('Error creating booking: $e');
+      print('Error in _createBooking: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal membuat pemesanan: ${e.toString()}'),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
           ),
         );

@@ -1,10 +1,14 @@
+import 'schedule.dart';
+import 'user.dart';
+
 class Booking {
   final String? bookingId;
   final String? scheduleId;
   final int? seatNumber;
   final double? totalPrice;
   final String? status;
-  final DateTime? paymentDeadline;
+  final Schedule? schedule;
+  final User? user;
 
   Booking({
     this.bookingId,
@@ -12,43 +16,30 @@ class Booking {
     this.seatNumber,
     this.totalPrice,
     this.status,
-    this.paymentDeadline,
+    this.schedule,
+    this.user,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
     return Booking(
-      bookingId: json['booking_id'],
-      scheduleId: json['schedule_id'],
+      bookingId: json['id']?.toString(),
+      scheduleId: json['schedule_id']?.toString(),
       seatNumber: json['seat_number'],
       totalPrice: json['total_price']?.toDouble(),
       status: json['status'],
-      paymentDeadline: json['payment_deadline'] != null
-          ? DateTime.parse(json['payment_deadline'])
-          : null,
+      schedule:
+          json['schedule'] != null ? Schedule.fromJson(json['schedule']) : null,
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'booking_id': bookingId,
+      'id': bookingId,
       'schedule_id': scheduleId,
       'seat_number': seatNumber,
       'total_price': totalPrice,
       'status': status,
-      'payment_deadline': paymentDeadline?.toIso8601String(),
     };
-  }
-
-  bool isValid() {
-    if (paymentDeadline == null) return false;
-    return DateTime.now().isBefore(paymentDeadline!);
-  }
-
-  bool isPaid() {
-    return status?.toLowerCase() == 'paid';
-  }
-
-  bool isPending() {
-    return status?.toLowerCase() == 'pending';
   }
 }
