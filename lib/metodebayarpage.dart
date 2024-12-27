@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tiketBus/pembayaranpage.dart';
+import 'package:tiketBus/payment_page.dart';
 
 class PaymentPage extends StatefulWidget {
   final String type;
@@ -11,7 +11,8 @@ class PaymentPage extends StatefulWidget {
   final String price;
   final List<int> selectedSeats;
 
-  const PaymentPage({super.key, 
+  const PaymentPage({
+    super.key,
     required this.type,
     required this.code,
     required this.departureLocation,

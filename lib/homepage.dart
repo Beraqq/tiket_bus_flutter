@@ -7,10 +7,12 @@ import 'package:tiketBus/services/route_service.dart';
 import 'package:tiketBus/services/schedule_service.dart';
 import 'package:tiketBus/ticketpage.dart' as ticket;
 import 'loginpage.dart';
+import 'models/schedule.dart';
 import 'pilihtiketpage.dart';
 import 'riwayatticketpage.dart'; // Import the HistoryScreen
 import 'profilepage.dart'; // Import the ProfileScreen
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -92,23 +94,38 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
+  final TextEditingController _originController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
+  final TextEditingController _seatsController =
+      TextEditingController(text: '1');
+  final _formKey = GlobalKey<FormState>();
+
   String? selectedOrigin;
   String? selectedDestination;
   DateTime? selectedDate;
-  int selectedSeats = 1;
   String? selectedClass;
-  final TextEditingController _originController = TextEditingController();
-  final TextEditingController _destinationController = TextEditingController();
-  List<Bus> buses = [];
   Bus? selectedBus;
+  bool isLoading = false;
   bool isLoadingBuses = false;
-  final _formKey = GlobalKey<FormState>();
-  final List<String> busClasses = ['economy', 'executive', 'VVIP'];
+  List<Bus> buses = [];
+
+  // Update daftar kelas bus menjadi 3 kelas
+  final List<String> busClasses = ['Economy', 'Executive', 'VVIP'];
 
   @override
   void initState() {
     super.initState();
+    _checkAuth();
     _loadBuses();
+  }
+
+  Future<void> _checkAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null && mounted) {
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 
   Future<void> _loadBuses() async {
@@ -124,7 +141,6 @@ class _HomePageContentState extends State<HomePageContent> {
       });
 
       if (response.error == 'Session expired. Please login again') {
-        // Redirect ke halaman login
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginPage()),
           (route) => false,
@@ -150,20 +166,11 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  @override
-  void dispose() {
-    _originController.dispose();
-    _destinationController.dispose();
-    super.dispose();
-  }
-
   void swapLocations() {
     setState(() {
-      String? tempOrigin = _originController.text;
+      String tempOrigin = _originController.text;
       _originController.text = _destinationController.text;
       _destinationController.text = tempOrigin;
-      selectedOrigin = _destinationController.text;
-      selectedDestination = _originController.text;
     });
   }
 
@@ -182,173 +189,7 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
-  void _saveDepartureDate(DateTime date) async {
-    if (_originController.text.isNotEmpty &&
-        _destinationController.text.isNotEmpty) {
-      // Simpan route terlebih dahulu
-      ApiResponse routeResponse = await createRoute(
-          _originController.text, _destinationController.text);
-
-      if (routeResponse.error == null && routeResponse.data != null) {
-        Map<String, dynamic> routeData =
-            routeResponse.data as Map<String, dynamic>;
-        BusRoute route = BusRoute.fromJson(routeData);
-
-        if (route.routeId != null && selectedBus != null) {
-          // Tambahkan pengecekan selectedBus
-          ApiResponse scheduleResponse = await createSchedule(
-              route.routeId!,
-              date,
-              selectedBus!.busCode!, // Tambahkan bus_code
-              selectedSeats // Tambahkan selected_seats
-              );
-
-          if (scheduleResponse.error == null) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Jadwal berhasil disimpan')),
-              );
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${scheduleResponse.error}')),
-              );
-            }
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text('${routeResponse.error ?? "Gagal membuat rute"}')),
-          );
-        }
-      }
-    }
-  }
-
-  void _saveRoute() async {
-    if (_originController.text.isNotEmpty &&
-        _destinationController.text.isNotEmpty) {
-      ApiResponse response = await createRoute(
-          _originController.text, _destinationController.text);
-
-      if (response.error == null) {
-        // Rute berhasil disimpan
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Rute berhasil disimpan')),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${response.error}')),
-          );
-        }
-      }
-    }
-  }
-
-  // Fungsi untuk menyimpan rute dan jadwal
-  Future<bool> _saveRouteAndSchedule() async {
-    if (_originController.text.isEmpty ||
-        _destinationController.text.isEmpty ||
-        selectedDate == null ||
-        selectedBus == null) {
-      // Tambahkan pengecekan selectedBus
-      return false;
-    }
-
-    // Simpan route terlebih dahulu
-    ApiResponse routeResponse =
-        await createRoute(_originController.text, _destinationController.text);
-
-    if (routeResponse.error == null && routeResponse.data != null) {
-      Map<String, dynamic> routeData =
-          routeResponse.data as Map<String, dynamic>;
-      BusRoute route = BusRoute.fromJson(routeData);
-
-      if (route.routeId != null) {
-        // Simpan schedule dengan semua parameter yang dibutuhkan
-        ApiResponse scheduleResponse = await createSchedule(
-            route.routeId!,
-            selectedDate!,
-            selectedBus!.busCode!, // Tambahkan bus_code
-            selectedSeats // Tambahkan selected_seats
-            );
-
-        if (scheduleResponse.error == null) {
-          return true;
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${scheduleResponse.error}')),
-            );
-          }
-          return false;
-        }
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('${routeResponse.error ?? "Gagal membuat rute"}')),
-        );
-      }
-      return false;
-    }
-    return false;
-  }
-
-  void _searchTickets() async {
-    if (_formKey.currentState!.validate()) {
-      if (selectedClass == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pilih kelas armada terlebih dahulu'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Pastikan selectedBus sudah ada
-      if (selectedBus == null) {
-        // Coba ambil bus berdasarkan kelas yang dipilih
-        selectedBus = await getBusByClass(selectedClass!);
-      }
-
-      if (selectedBus == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Data bus tidak ditemukan'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Navigate ke TicketPage dengan parameter yang lengkap
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TicketPage(
-            origin: _originController.text,
-            destination: _destinationController.text,
-            date: selectedDate!,
-            seats: selectedSeats,
-            classType: selectedClass!,
-            bus: selectedBus!,
-          ),
-        ),
-      );
-    }
-  }
-
-  void _onBusClassChanged(String? newValue) async {
+  Future<void> _onBusClassChanged(String? newValue) async {
     if (newValue != null) {
       setState(() {
         selectedClass = newValue;
@@ -357,12 +198,10 @@ class _HomePageContentState extends State<HomePageContent> {
       });
 
       try {
-        // Coba cari dari list buses yang sudah ada
         if (buses.isNotEmpty) {
           selectedBus = getBusFromListByClass(buses, newValue);
         }
 
-        // Jika tidak ditemukan, coba ambil dari API
         if (selectedBus == null) {
           selectedBus = await getBusByClass(newValue);
         }
@@ -380,9 +219,6 @@ class _HomePageContentState extends State<HomePageContent> {
                 backgroundColor: Colors.red,
               ),
             );
-          } else {
-            print(
-                'Selected bus: ${selectedBus?.busCode} - ${selectedBus?.busClass}');
           }
         }
       } catch (e) {
@@ -401,6 +237,123 @@ class _HomePageContentState extends State<HomePageContent> {
     }
   }
 
+  Future<void> _searchTickets() async {
+    if (_formKey.currentState!.validate()) {
+      final seats = int.tryParse(_seatsController.text);
+      if (seats == null || seats <= 0 || seats > 4) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Jumlah kursi tidak valid (1-4)'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (selectedClass == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pilih kelas armada terlebih dahulu'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        isLoading = true;
+      });
+
+      try {
+        if (selectedBus?.busCode == null) {
+          throw Exception('Bus code tidak ditemukan');
+        }
+
+        if (selectedDate == null) {
+          throw Exception('Tanggal keberangkatan belum dipilih');
+        }
+
+        print('Searching for schedules with:');
+        print('Bus Code: ${selectedBus?.busCode}');
+        print('Date: $selectedDate');
+        print('Seats: $seats');
+
+        final scheduleResponse = await getAvailableSchedules(
+          selectedBus!.busCode!,
+          selectedDate!,
+        );
+
+        if (scheduleResponse.error != null) {
+          throw Exception(scheduleResponse.error);
+        }
+
+        if (scheduleResponse.data == null) {
+          throw Exception('Tidak ada data jadwal');
+        }
+
+        final responseData = scheduleResponse.data;
+        if (responseData is! List) {
+          throw Exception('Format data tidak valid');
+        }
+
+        final List<Schedule> schedules = responseData
+            .map((item) {
+              if (item is! Map<String, dynamic>) {
+                throw Exception('Format jadwal tidak valid');
+              }
+              return Schedule.fromJson(item);
+            })
+            .where((schedule) => schedule.availableSeats >= seats)
+            .toList();
+
+        if (schedules.isEmpty) {
+          throw Exception(
+              'Tidak ada jadwal tersedia dengan kursi yang mencukupi');
+        }
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PilihTiketPage(
+                origin: _originController.text,
+                destination: _destinationController.text,
+                date: selectedDate!,
+                seats: seats,
+                classType: selectedClass!,
+                bus: selectedBus!,
+                schedules: schedules,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error in _searchTickets: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal mencari jadwal: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  void dispose() {
+    _originController.dispose();
+    _destinationController.dispose();
+    _seatsController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -410,227 +363,236 @@ class _HomePageContentState extends State<HomePageContent> {
       builder: (context, constraints) {
         final horizontalPadding = isSmallScreen ? 6.0 : 10.0;
 
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: isSmallScreen ? 6.0 : 12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16.0),
-                    child: Image.asset(
-                      "assets/images/gambar1.png",
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                Form(
-                  key: _formKey,
+        return isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: isSmallScreen ? 6.0 : 12.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 6.0),
-                        child: Text(
-                          "Pilih Keberangkatan",
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 14 : 16,
-                            fontWeight: FontWeight.bold,
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16.0),
+                          child: Image.asset(
+                            "assets/images/gambar1.png",
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                      Flex(
-                        direction:
-                            isSmallScreen ? Axis.vertical : Axis.horizontal,
-                        children: [
-                          Expanded(
-                            flex: isSmallScreen ? 0 : 10,
-                            child: TextFormField(
-                              controller: _originController,
-                              decoration: const InputDecoration(
-                                labelText: 'Kota Asal',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.location_on),
-                                contentPadding: EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 4),
-                                isDense: true,
-                              ),
-                              validator: (value) => value?.isEmpty ?? true
-                                  ? 'Pilih kota asal'
-                                  : null,
-                            ),
-                          ),
-                          if (!isSmallScreen)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 1),
-                              child: IconButton(
-                                icon: const Icon(Icons.swap_horiz, size: 20),
-                                onPressed: swapLocations,
-                                constraints: const BoxConstraints(minWidth: 24),
-                                padding: EdgeInsets.zero,
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 6.0),
+                              child: Text(
+                                "Pilih Keberangkatan",
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 14 : 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          if (isSmallScreen)
-                            IconButton(
-                              icon: const Icon(Icons.swap_vert, size: 20),
-                              onPressed: swapLocations,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 24),
+                            Flex(
+                              direction: isSmallScreen
+                                  ? Axis.vertical
+                                  : Axis.horizontal,
+                              children: [
+                                Expanded(
+                                  flex: isSmallScreen ? 0 : 10,
+                                  child: TextFormField(
+                                    controller: _originController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Kota Asal',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.location_on),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          vertical: 8, horizontal: 4),
+                                      isDense: true,
+                                    ),
+                                    validator: (value) => value?.isEmpty ?? true
+                                        ? 'Pilih kota asal'
+                                        : null,
+                                  ),
+                                ),
+                                if (!isSmallScreen)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 1),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.swap_horiz,
+                                          size: 20),
+                                      onPressed: swapLocations,
+                                      constraints:
+                                          const BoxConstraints(minWidth: 24),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                if (isSmallScreen)
+                                  IconButton(
+                                    icon: const Icon(Icons.swap_vert, size: 20),
+                                    onPressed: swapLocations,
+                                    padding: EdgeInsets.zero,
+                                    constraints:
+                                        const BoxConstraints(minWidth: 24),
+                                  ),
+                                Expanded(
+                                  flex: isSmallScreen ? 0 : 10,
+                                  child: TextFormField(
+                                    controller: _destinationController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Kota Tujuan',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.location_on),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          vertical: 8, horizontal: 4),
+                                      isDense: true,
+                                    ),
+                                    validator: (value) => value?.isEmpty ?? true
+                                        ? 'Pilih kota tujuan'
+                                        : null,
+                                  ),
+                                ),
+                              ],
                             ),
-                          Expanded(
-                            flex: isSmallScreen ? 0 : 10,
-                            child: TextFormField(
-                              controller: _destinationController,
-                              decoration: const InputDecoration(
-                                labelText: 'Kota Tujuan',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.location_on),
-                                contentPadding: EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 4),
-                                isDense: true,
+                            const SizedBox(height: 16),
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 6.0),
+                              child: Text(
+                                "Tanggal Keberangkatan",
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 14 : 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              validator: (value) => value?.isEmpty ?? true
-                                  ? 'Pilih kota tujuan'
-                                  : null,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 6.0),
-                        child: Text(
-                          "Tanggal Keberangkatan",
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 14 : 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => _selectDate(context),
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.calendar_today),
-                          ),
-                          child: Text(
-                            selectedDate != null
-                                ? DateFormat('dd/MM/yyyy').format(selectedDate!)
-                                : 'Pilih Tanggal',
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: isSmallScreen ? 16 : 24),
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 6.0),
-                        child: Text(
-                          "Detail Perjalanan",
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 14 : 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Flex(
-                        direction:
-                            isSmallScreen ? Axis.vertical : Axis.horizontal,
-                        children: [
-                          Expanded(
-                            flex: isSmallScreen ? 0 : 1,
-                            child: DropdownButtonFormField<int>(
-                              decoration: const InputDecoration(
-                                labelText: 'Jumlah Kursi',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.event_seat),
-                                contentPadding: EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 8),
+                            InkWell(
+                              onTap: () => _selectDate(context),
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.calendar_today),
+                                ),
+                                child: Text(
+                                  selectedDate != null
+                                      ? DateFormat('dd/MM/yyyy')
+                                          .format(selectedDate!)
+                                      : 'Pilih Tanggal',
+                                ),
                               ),
-                              value: selectedSeats,
-                              items: List.generate(10, (index) => index + 1)
-                                  .map((int value) {
-                                return DropdownMenuItem<int>(
-                                  value: value,
-                                  child: Text(value.toString()),
-                                );
-                              }).toList(),
-                              onChanged: (int? newValue) {
-                                setState(() {
-                                  selectedSeats = newValue ?? 1;
-                                });
-                              },
                             ),
-                          ),
-                          SizedBox(
-                              width: isSmallScreen ? 0 : 8,
-                              height: isSmallScreen ? 16 : 0),
-                          Expanded(
-                            flex: isSmallScreen ? 0 : 1,
-                            child: DropdownButtonFormField<String>(
-                              decoration: const InputDecoration(
-                                labelText: 'Kelas Armada',
-                                border: OutlineInputBorder(),
-                                prefixIcon:
-                                    Icon(Icons.airline_seat_recline_normal),
-                                contentPadding: EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 8),
+                            SizedBox(height: isSmallScreen ? 16 : 24),
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 6.0),
+                              child: Text(
+                                "Detail Perjalanan",
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 14 : 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              value: selectedClass,
-                              items: isLoadingBuses
-                                  ? []
-                                  : busClasses.map((String value) {
-                                      return DropdownMenuItem<String>(
-                                        value: value,
-                                        child: Text(value.toUpperCase()),
-                                      );
-                                    }).toList(),
-                              onChanged:
-                                  isLoadingBuses ? null : _onBusClassChanged,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Pilih kelas armada';
-                                }
-                                return null;
-                              },
-                              hint: isLoadingBuses
-                                  ? const Text('Loading...')
-                                  : const Text('Pilih Kelas'),
                             ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: isSmallScreen ? 16 : 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            padding: EdgeInsets.symmetric(
-                              vertical: isSmallScreen ? 12 : 16,
+                            Flex(
+                              direction: isSmallScreen
+                                  ? Axis.vertical
+                                  : Axis.horizontal,
+                              children: [
+                                Expanded(
+                                  flex: isSmallScreen ? 0 : 1,
+                                  child: TextFormField(
+                                    controller: _seatsController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Jumlah Kursi',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.event_seat),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Jumlah kursi harus diisi';
+                                      }
+                                      final seats = int.tryParse(value);
+                                      if (seats == null || seats <= 0) {
+                                        return 'Jumlah kursi harus lebih dari 0';
+                                      }
+                                      if (seats > 4) {
+                                        return 'Maksimal 4 kursi';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                    width: isSmallScreen ? 0 : 8,
+                                    height: isSmallScreen ? 16 : 0),
+                                Expanded(
+                                  flex: isSmallScreen ? 0 : 1,
+                                  child: DropdownButtonFormField<String>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Kelas Armada',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(
+                                          Icons.airline_seat_recline_normal),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 8),
+                                    ),
+                                    value: selectedClass,
+                                    items: isLoadingBuses
+                                        ? []
+                                        : busClasses.map((String value) {
+                                            return DropdownMenuItem<String>(
+                                              value: value.toLowerCase(),
+                                              child: Text(value),
+                                            );
+                                          }).toList(),
+                                    onChanged: isLoadingBuses
+                                        ? null
+                                        : _onBusClassChanged,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Pilih kelas armada';
+                                      }
+                                      return null;
+                                    },
+                                    hint: isLoadingBuses
+                                        ? const Text('Loading...')
+                                        : const Text('Pilih Kelas'),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          onPressed: _searchTickets,
-                          child: Text(
-                            'Cari Tiket',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 14 : 16,
-                              color: Colors.white,
+                            SizedBox(height: isSmallScreen ? 16 : 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: isSmallScreen ? 12 : 16,
+                                  ),
+                                ),
+                                onPressed: _searchTickets,
+                                child: Text(
+                                  'Cari Tiket',
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 14 : 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        );
+              );
       },
     );
   }

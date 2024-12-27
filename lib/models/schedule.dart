@@ -1,27 +1,22 @@
 class Schedule {
-  int? id;
-  String? scheduleId;
-  String? busCode;
-  String? routeId;
-  DateTime? departureDate;
-  String? departureTime;
-  int? availableSeats;
-  int? selectedSeats;
+  final String? scheduleId;
+  final String? busCode;
+  final String? routeId;
+  final DateTime? departureDate;
+  final String? departureTime;
+  final int availableSeats;
 
   Schedule({
-    this.id,
     this.scheduleId,
     this.busCode,
     this.routeId,
     this.departureDate,
     this.departureTime,
-    this.availableSeats,
-    this.selectedSeats,
+    required this.availableSeats,
   });
 
   factory Schedule.fromJson(Map<String, dynamic> json) {
     return Schedule(
-      id: json['id'],
       scheduleId: json['schedule_id'],
       busCode: json['bus_code'],
       routeId: json['route_id'],
@@ -29,21 +24,7 @@ class Schedule {
           ? DateTime.parse(json['departure_date'])
           : null,
       departureTime: json['departure_time'],
-      availableSeats: json['available_seats'],
-      selectedSeats: json['selected_seats'],
+      availableSeats: json['available_seats'] ?? 0,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'schedule_id': scheduleId,
-      'bus_code': busCode,
-      'route_id': routeId,
-      'departure_date': departureDate?.toIso8601String(),
-      'departure_time': departureTime,
-      'available_seats': availableSeats,
-      'selected_seats': selectedSeats,
-    };
   }
 }

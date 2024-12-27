@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:tiketBus/constant.dart';
 import 'package:tiketBus/models/api_response.dart';
 import 'package:tiketBus/models/schedule.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Get schedules by route
 Future<ApiResponse> getSchedulesByRoute(String routeId) async {
@@ -67,33 +69,64 @@ Future<ApiResponse> getScheduleById(String scheduleId) async {
 }
 
 // Get available schedules by date and route
-Future<ApiResponse> getAvailableSchedules(String routeId, DateTime date) async {
+Future<ApiResponse> getAvailableSchedules(String busCode, DateTime date) async {
   ApiResponse apiResponse = ApiResponse();
   try {
+    // Ambil token dari SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null) {
+      print('Token not found');
+      apiResponse.error = 'Silakan login terlebih dahulu';
+      return apiResponse;
+    }
+
+    String formattedDate = DateFormat('yyyy-MM-dd').format(date);
+
+    print('Fetching schedules with:');
+    print('Bus Code: $busCode');
+    print('Date: $formattedDate');
+    print('Token: $token'); // Debug print token
+
     final response = await http.get(
-      Uri.parse('$scheduleURL/available/$routeId/${date.toIso8601String()}'),
+      Uri.parse('$scheduleURL/available/$busCode/$formattedDate'),
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token', // Tambahkan token ke header
       },
     );
 
+    print('Response status: ${response.statusCode}');
+    print('Response body: ${response.body}');
+
     switch (response.statusCode) {
       case 200:
-        List<dynamic> scheduleList = jsonDecode(response.body)['schedules'];
-        List<Schedule> schedules =
-            scheduleList.map((p) => Schedule.fromJson(p)).toList();
-        apiResponse.data = schedules;
+        final responseData = jsonDecode(response.body);
+        if (responseData['schedules'] != null) {
+          apiResponse.data = responseData['schedules'];
+        } else {
+          apiResponse.error = 'Tidak ada jadwal tersedia';
+        }
         break;
       case 401:
-        apiResponse.error = unauthorized;
+        print('Unauthorized: Token might be invalid or expired');
+        apiResponse.error = 'Sesi telah berakhir, silakan login kembali';
+        // Hapus token karena sudah tidak valid
+        await prefs.remove('token');
+        break;
+      case 404:
+        apiResponse.error = 'Jadwal tidak ditemukan';
         break;
       default:
+        print('Unexpected status code: ${response.statusCode}');
         apiResponse.error = somethingWentWrong;
         break;
     }
   } catch (e) {
+    print('Error in getAvailableSchedules: $e');
     apiResponse.error = serverError;
-    print('Exception: $e');
   }
   return apiResponse;
 }

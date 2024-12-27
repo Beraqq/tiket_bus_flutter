@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'booking_confirmation.dart';
 import 'models/bus.dart';
+import 'models/schedule.dart';
 
 class BookingPage extends StatefulWidget {
   final String origin;
@@ -10,6 +12,7 @@ class BookingPage extends StatefulWidget {
   final int seats;
   final String classType;
   final Bus bus;
+  final Schedule schedule;
 
   const BookingPage({
     Key? key,
@@ -19,6 +22,7 @@ class BookingPage extends StatefulWidget {
     required this.seats,
     required this.classType,
     required this.bus,
+    required this.schedule,
   }) : super(key: key);
 
   @override
@@ -129,7 +133,21 @@ class _BookingPageState extends State<BookingPage> {
                     ),
                     onPressed: selectedSeats.length == widget.seats
                         ? () {
-                            print('Selected seats: $selectedSeats');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookingConfirmation(
+                                  origin: widget.origin,
+                                  destination: widget.destination,
+                                  date: widget.date,
+                                  seats: widget.seats,
+                                  selectedSeats: selectedSeats.toList(),
+                                  classType: widget.classType,
+                                  bus: widget.bus,
+                                  schedule: widget.schedule,
+                                ),
+                              ),
+                            );
                           }
                         : null,
                     child: Text(

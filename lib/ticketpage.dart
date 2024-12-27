@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:tiketBus/models/bus.dart';
+import 'package:tiketBus/models/schedule.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:tiketBus/bookingpage.dart';
 
-class TicketPage extends StatelessWidget {
+class TicketPage extends StatefulWidget {
   final String origin;
   final String destination;
   final DateTime date;
   final int seats;
   final String classType;
   final Bus bus;
+  final Schedule schedule;
 
   const TicketPage({
     Key? key,
@@ -21,7 +23,15 @@ class TicketPage extends StatelessWidget {
     required this.seats,
     required this.classType,
     required this.bus,
+    required this.schedule,
   }) : super(key: key);
+
+  @override
+  State<TicketPage> createState() => _TicketPageState();
+}
+
+class _TicketPageState extends State<TicketPage> {
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -52,31 +62,31 @@ class TicketPage extends StatelessWidget {
                     DetailRow(
                       icon: Icons.location_on,
                       label: 'Rute',
-                      value: '$origin → $destination',
+                      value: '${widget.origin} → ${widget.destination}',
                     ),
                     const SizedBox(height: 8),
                     DetailRow(
                       icon: Icons.calendar_today,
                       label: 'Tanggal',
-                      value: DateFormat('dd MMMM yyyy').format(date),
+                      value: DateFormat('dd MMMM yyyy').format(widget.date),
                     ),
                     const SizedBox(height: 8),
                     DetailRow(
                       icon: Icons.airline_seat_recline_normal,
                       label: 'Kelas',
-                      value: classType,
+                      value: widget.classType,
                     ),
                     const SizedBox(height: 8),
                     DetailRow(
                       icon: Icons.event_seat,
                       label: 'Jumlah Kursi',
-                      value: seats.toString(),
+                      value: widget.seats.toString(),
                     ),
                     const SizedBox(height: 8),
                     DetailRow(
                       icon: Icons.directions_bus,
                       label: 'Bus',
-                      value: bus.busCode ?? '',
+                      value: widget.bus.busCode ?? '',
                     ),
                     const Divider(height: 32),
                     const Text(
@@ -92,7 +102,7 @@ class TicketPage extends StatelessWidget {
                       children: [
                         const Text('Harga per kursi'),
                         Text(
-                          'Rp ${NumberFormat('#,###').format(bus.pricePerSeat ?? 0)}',
+                          'Rp ${NumberFormat('#,###').format(widget.bus.pricePerSeat ?? 0)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -101,9 +111,9 @@ class TicketPage extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Total ($seats kursi)'),
+                        Text('Total (${widget.seats} kursi)'),
                         Text(
-                          'Rp ${NumberFormat('#,###').format((bus.pricePerSeat ?? 0) * seats)}',
+                          'Rp ${NumberFormat('#,###').format((widget.bus.pricePerSeat ?? 0) * widget.seats)}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -129,12 +139,13 @@ class TicketPage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => BookingPage(
-                        origin: origin,
-                        destination: destination,
-                        date: date,
-                        seats: seats,
-                        classType: classType,
-                        bus: bus,
+                        origin: widget.origin,
+                        destination: widget.destination,
+                        date: widget.date,
+                        seats: widget.seats,
+                        classType: widget.classType,
+                        bus: widget.bus,
+                        schedule: widget.schedule,
                       ),
                     ),
                   );
