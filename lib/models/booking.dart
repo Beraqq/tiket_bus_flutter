@@ -2,6 +2,7 @@ import 'schedule.dart';
 import 'user.dart';
 
 class Booking {
+  final String? id;
   final String? bookingId;
   final String? scheduleId;
   final int? seatNumber;
@@ -11,6 +12,7 @@ class Booking {
   final User? user;
 
   Booking({
+    this.id,
     this.bookingId,
     this.scheduleId,
     this.seatNumber,
@@ -22,6 +24,7 @@ class Booking {
 
   factory Booking.fromJson(Map<String, dynamic> json) {
     return Booking(
+      id: json['id']?.toString(),
       bookingId: json['id']?.toString(),
       scheduleId: json['schedule_id']?.toString(),
       seatNumber: json['seat_number'],

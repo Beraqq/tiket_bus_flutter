@@ -6,28 +6,25 @@ import '../models/payment.dart';
 import '../constant.dart';
 
 class PaymentService {
-  Future<ApiResponse> createPayment({
-    required String bookingId,
-    required double amount,
-    required String method,
-  }) async {
+  Future<ApiResponse> createPayment(
+      {required String bookingId,
+      required double amount,
+      required String method}) async {
     ApiResponse apiResponse = ApiResponse();
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
       if (token == null) {
-        apiResponse.error = unauthorized;
-        return apiResponse;
+        throw Exception('Sesi telah berakhir');
       }
 
-      print('Creating payment with:');
+      print('Creating payment with data:');
       print('Booking ID: $bookingId');
       print('Amount: $amount');
-      print('Method: $method');
 
       final response = await http.post(
-        Uri.parse('$paymentURL/create'),
+        Uri.parse('$baseURL/payments/create'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -36,38 +33,42 @@ class PaymentService {
         body: jsonEncode({
           'booking_id': bookingId,
           'amount': amount,
-          'method': method,
         }),
       );
 
-      print('Payment response status: ${response.statusCode}');
-      print('Payment response body: ${response.body}');
+      print('Payment Response Status: ${response.statusCode}');
+      print('Payment Response Body: ${response.body}');
 
-      switch (response.statusCode) {
-        case 200:
-          final responseData = jsonDecode(response.body);
-          apiResponse.data = Payment.fromJson(responseData);
-          break;
-        case 401:
-          apiResponse.error = unauthorized;
-          break;
-        case 400:
-          final responseData = jsonDecode(response.body);
-          apiResponse.error = responseData['message'] ?? 'Bad Request';
-          break;
-        default:
-          apiResponse.error = somethingWentWrong;
-          break;
+      if (response.body.isEmpty) {
+        throw Exception('Server returned empty response');
+      }
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (responseData['status'] == 'success' &&
+            responseData['data'] != null) {
+          apiResponse.data = {
+            'snap_token': responseData['data']['snap_token'],
+            'payment': Payment.fromJson(responseData['data']['payment']),
+          };
+          print('Payment data processed successfully');
+        } else {
+          throw Exception(
+              responseData['message'] ?? 'Gagal membuat pembayaran');
+        }
+      } else {
+        throw Exception(responseData['message'] ?? 'Gagal membuat pembayaran');
       }
     } catch (e) {
-      print('Error in createPayment: $e');
-      apiResponse.error = serverError;
+      print('Error creating payment: $e');
+      apiResponse.error = e.toString().replaceAll('Exception: ', '');
     }
     return apiResponse;
   }
 
   Future<ApiResponse> uploadPaymentProof({
-    required int paymentId,
+    required String paymentId,
     required String filePath,
   }) async {
     ApiResponse apiResponse = ApiResponse();
@@ -76,13 +77,12 @@ class PaymentService {
       final token = prefs.getString('token');
 
       if (token == null) {
-        apiResponse.error = 'Not authenticated';
-        return apiResponse;
+        throw Exception('Sesi telah berakhir');
       }
 
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseURL/payments/$paymentId/proof'),
+        Uri.parse('$baseURL/payments/$paymentId/upload-proof'),
       );
 
       request.headers.addAll({
@@ -90,103 +90,53 @@ class PaymentService {
         'Authorization': 'Bearer $token',
       });
 
-      request.files.add(await http.MultipartFile.fromPath(
-        'payment_proof',
-        filePath,
-      ));
+      request.files.add(
+        await http.MultipartFile.fromPath('payment_proof', filePath),
+      );
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
-      switch (response.statusCode) {
-        case 200:
-          apiResponse.data = Payment.fromJson(jsonDecode(response.body));
-          break;
-        case 401:
-          apiResponse.error = 'Unauthorized';
-          break;
-        default:
-          apiResponse.error = 'Failed to upload payment proof';
-          break;
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        apiResponse.data = Payment.fromJson(responseData['data']);
+      } else {
+        throw Exception(responseData['message']);
       }
     } catch (e) {
-      apiResponse.error = 'Server error: $e';
+      apiResponse.error = e.toString().replaceAll('Exception: ', '');
     }
     return apiResponse;
   }
 
-  Future<ApiResponse> getPaymentStatus(int paymentId) async {
+  Future<ApiResponse> checkPaymentStatus(String paymentId) async {
     ApiResponse apiResponse = ApiResponse();
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
       if (token == null) {
-        apiResponse.error = 'Not authenticated';
-        return apiResponse;
+        throw Exception('Sesi telah berakhir');
       }
 
       final response = await http.get(
-        Uri.parse('$baseURL/payments/$paymentId'),
+        Uri.parse('$baseURL/payments/$paymentId/status'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
 
-      switch (response.statusCode) {
-        case 200:
-          apiResponse.data = Payment.fromJson(jsonDecode(response.body));
-          break;
-        case 401:
-          apiResponse.error = 'Unauthorized';
-          break;
-        case 404:
-          apiResponse.error = 'Payment not found';
-          break;
-        default:
-          apiResponse.error = 'Failed to get payment status';
-          break;
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        apiResponse.data = Payment.fromJson(responseData['data']);
+      } else {
+        throw Exception(responseData['message']);
       }
     } catch (e) {
-      apiResponse.error = 'Server error: $e';
-    }
-    return apiResponse;
-  }
-
-  Future<ApiResponse> checkPaymentStatus(String bookingId) async {
-    ApiResponse apiResponse = ApiResponse();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
-      if (token == null) {
-        apiResponse.error = unauthorized;
-        return apiResponse;
-      }
-
-      final response = await http.get(
-        Uri.parse('$paymentURL/status/$bookingId'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      switch (response.statusCode) {
-        case 200:
-          final responseData = jsonDecode(response.body);
-          apiResponse.data = Payment.fromJson(responseData);
-          break;
-        case 401:
-          apiResponse.error = unauthorized;
-          break;
-        default:
-          apiResponse.error = somethingWentWrong;
-          break;
-      }
-    } catch (e) {
-      apiResponse.error = serverError;
+      apiResponse.error = e.toString().replaceAll('Exception: ', '');
     }
     return apiResponse;
   }

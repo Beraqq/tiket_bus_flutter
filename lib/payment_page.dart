@@ -62,7 +62,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       final response = await _paymentService.createPayment(
-        bookingId: widget.booking.bookingId!,
+        bookingId: widget.booking.id!,
         amount: widget.booking.totalPrice!,
         method: selectedPaymentMethod!,
       );
