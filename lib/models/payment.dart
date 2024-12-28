@@ -25,19 +25,33 @@ class Payment {
 
   factory Payment.fromJson(Map<String, dynamic> json) {
     return Payment(
-      id: json['id'].toString(),
-      bookingId: json['booking_id'].toString(),
-      amount: double.tryParse(json['amount'].toString()) ?? 0.0,
-      method: json['method'],
-      virtualAccount: json['virtual_account'],
-      paymentProof: json['payment_proof'],
+      id: json['id']?.toString(),
+      bookingId: json['booking_id']?.toString(),
+      amount: json['amount'] != null
+          ? double.tryParse(json['amount'].toString())
+          : null,
+      method: json['method']?.toString(),
+      virtualAccount: json['virtual_account']?.toString(),
+      paymentProof: json['payment_proof']?.toString(),
       paymentDeadline: json['payment_deadline'] != null
-          ? DateTime.parse(json['payment_deadline'])
+          ? DateTime.tryParse(json['payment_deadline'].toString())
           : null,
-      status: json['status'],
-      paymentDetails: json['payment_details'] != null
-          ? Map<String, dynamic>.from(json['payment_details'])
-          : null,
+      status: json['status']?.toString(),
+      paymentDetails: json['payment_details'] as Map<String, dynamic>?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'booking_id': bookingId,
+      'amount': amount,
+      'method': method,
+      'virtual_account': virtualAccount,
+      'payment_proof': paymentProof,
+      'payment_deadline': paymentDeadline?.toIso8601String(),
+      'status': status,
+      'payment_details': paymentDetails,
+    };
   }
 }

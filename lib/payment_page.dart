@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/booking.dart';
+import 'package:tiketBus/pages/homepage.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../models/payment.dart';
 import '../services/payment_service.dart';
-import 'pages/payment_instruction_page.dart';
+import '../widgets/midtrans_webview.dart';
 
 class PaymentPage extends StatefulWidget {
-  final Booking booking;
+  final dynamic booking;
   final VoidCallback onPaymentComplete;
 
   const PaymentPage({
@@ -21,35 +22,14 @@ class PaymentPage extends StatefulWidget {
 
 class _PaymentPageState extends State<PaymentPage> {
   final PaymentService _paymentService = PaymentService();
-  String? selectedPaymentMethod;
   bool isLoading = false;
-
-  final List<Map<String, dynamic>> paymentMethods = [
-    {
-      'id': 'bank_transfer',
-      'name': 'Transfer Bank',
-      'icon': Icons.account_balance,
-      'banks': ['BCA', 'BNI', 'Mandiri', 'BRI'],
-    },
-    {
-      'id': 'virtual_account',
-      'name': 'Virtual Account',
-      'icon': Icons.credit_card,
-      'banks': ['BCA', 'BNI', 'Mandiri', 'BRI'],
-    },
-    {
-      'id': 'e_wallet',
-      'name': 'E-Wallet',
-      'icon': Icons.wallet,
-      'providers': ['GoPay', 'OVO', 'DANA', 'LinkAja'],
-    },
-  ];
+  String? selectedBank;
 
   void _processPayment() async {
-    if (selectedPaymentMethod == null) {
+    if (selectedBank == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan pilih metode pembayaran'),
+          content: Text('Silakan pilih bank terlebih dahulu'),
           backgroundColor: Colors.red,
         ),
       );
@@ -61,37 +41,70 @@ class _PaymentPageState extends State<PaymentPage> {
     });
 
     try {
+      if (widget.booking.id == null) {
+        throw Exception('Invalid booking ID');
+      }
+
+      print('Processing payment for booking ID: ${widget.booking.id}');
+      print('Amount: ${widget.booking.totalPrice}');
+      print('Selected Bank: $selectedBank');
+
       final response = await _paymentService.createPayment(
         bookingId: widget.booking.id!,
-        amount: widget.booking.totalPrice!,
-        method: selectedPaymentMethod!,
+        amount: widget.booking.totalPrice ?? 0,
+        method: selectedBank!.toLowerCase(),
       );
 
-      if (response.error != null) {
-        throw Exception(response.error);
-      }
+      if (!mounted) return;
 
-      if (mounted) {
-        widget.onPaymentComplete();
+      if (response.error == null && response.data != null) {
+        final payment = response.data as Payment;
+        print('Payment created successfully. Payment ID: ${payment.id}');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pembayaran berhasil'),
-            backgroundColor: Colors.green,
-          ),
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Pembayaran Berhasil'),
+              content: const Text(
+                'Pemesanan tiket Anda telah berhasil.\nTiket dapat dilihat di menu Tiket.',
+                textAlign: TextAlign.center,
+              ),
+              actions: [
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      widget.onPaymentComplete?.call();
+
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const HomePage1(initialIndex: 1),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    child: const Text('OK'),
+                  ),
+                ),
+              ],
+            );
+          },
         );
-
-        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        throw Exception(response.error ?? 'Pembayaran gagal');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memproses pembayaran: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('Error processing payment: $e');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -108,149 +121,151 @@ class _PaymentPageState extends State<PaymentPage> {
         title: const Text('Pembayaran'),
         backgroundColor: Colors.blue,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPaymentSummary(),
-            const SizedBox(height: 24),
-            _buildPaymentMethods(),
-            const SizedBox(height: 24),
-            _buildPaymentButton(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentSummary() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ringkasan Pembayaran',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Total Pembayaran'),
-                Text(
-                  'Rp ${NumberFormat('#,###').format(widget.booking.totalPrice)}',
-                  style: const TextStyle(
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Ringkasan Pembayaran',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Pembayaran'),
+                            Text(
+                              'Rp ${NumberFormat('#,###').format(widget.booking.totalPrice ?? 0)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Pilih Metode Pembayaran',
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.account_balance),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Transfer Bank',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildBankOption('BCA'),
+                            _buildBankOption('BNI'),
+                            _buildBankOption('Mandiri'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    onPressed: isLoading ? null : _processPayment,
+                    child: Text(
+                      isLoading ? 'Memproses...' : 'Bayar Sekarang',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
+          ),
+          if (isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBankOption(String bankName) {
+    final isSelected = selectedBank == bankName;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedBank = bankName;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text(
+              bankName,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: Colors.blue, size: 16),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentMethods() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Pilih Metode Pembayaran',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...paymentMethods.map((method) => _buildPaymentMethodCard(method)),
-      ],
-    );
-  }
-
-  Widget _buildPaymentMethodCard(Map<String, dynamic> method) {
-    final bool isSelected = selectedPaymentMethod == method['id'];
-
-    return Card(
-      color: isSelected ? Colors.blue.shade50 : null,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            selectedPaymentMethod = method['id'];
-          });
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(method['icon'], color: Colors.blue),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      method['name'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (isSelected && method['banks'] != null) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (String bank in method['banks'])
-                            Chip(label: Text(bank)),
-                        ],
-                      ),
-                    ],
-                    if (isSelected && method['providers'] != null) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (String provider in method['providers'])
-                            Chip(label: Text(provider)),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (isSelected)
-                const Icon(Icons.check_circle, color: Colors.blue),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        onPressed: isLoading ? null : _processPayment,
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : const Text(
-                'Bayar Sekarang',
-                style: TextStyle(fontSize: 16),
-              ),
       ),
     );
   }

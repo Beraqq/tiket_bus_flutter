@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tiketBus/loading.dart';
 import 'package:tiketBus/loginpage.dart';
 
 void main() {

@@ -39,10 +39,10 @@ class _RegisterpageState extends State<Registerpage> {
       });
 
       ApiResponse response = await register(
-          _nameController.text,
-          _phoneController.text,
-          _emailController.text,
-          _passwordController.text);
+        _nameController.text,
+        _emailController.text,
+        _passwordController.text,
+      );
 
       setState(() {
         _loading = false;

@@ -1,59 +1,39 @@
 class Bus {
-  final int? id;
   final String? busCode;
+  final String? busName;
   final String? busClass;
-  final String? facilities;
   final int? totalSeats;
+  final int? capacity;
   final double? pricePerSeat;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
 
   Bus({
-    this.id,
     this.busCode,
+    this.busName,
     this.busClass,
-    this.facilities,
     this.totalSeats,
+    this.capacity,
     this.pricePerSeat,
-    this.createdAt,
-    this.updatedAt,
   });
 
   factory Bus.fromJson(Map<String, dynamic> json) {
-    try {
-      return Bus(
-        id: json['id'],
-        busCode: json['bus_code'],
-        busClass: json['class'],
-        facilities: json['facilities'],
-        totalSeats: json['total_seats'],
-        pricePerSeat: json['price_per_seat'] is String
-            ? double.tryParse(json['price_per_seat'])
-            : json['price_per_seat']?.toDouble(),
-        createdAt: json['created_at'] != null
-            ? DateTime.parse(json['created_at'])
-            : null,
-        updatedAt: json['updated_at'] != null
-            ? DateTime.parse(json['updated_at'])
-            : null,
-      );
-    } catch (e) {
-      print('Error parsing Bus JSON: $e');
-      print('JSON data: $json');
-      rethrow;
-    }
+    return Bus(
+      busCode: json['bus_code']?.toString(),
+      busName: json['bus_name']?.toString(),
+      busClass: json['bus_class']?.toString(),
+      totalSeats: int.tryParse(json['total_seats']?.toString() ?? '0'),
+      capacity: int.tryParse(json['capacity']?.toString() ?? '0'),
+      pricePerSeat: double.tryParse(json['price_per_seat']?.toString() ?? '0'),
+    );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'bus_code': busCode,
-      'class': busClass,
-      'facilities': facilities,
+      'bus_name': busName,
+      'bus_class': busClass,
       'total_seats': totalSeats,
+      'capacity': capacity,
       'price_per_seat': pricePerSeat,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 }

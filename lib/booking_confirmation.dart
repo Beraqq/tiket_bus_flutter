@@ -152,7 +152,7 @@ class _BookingConfirmationState extends State<BookingConfirmation> {
         }
 
         lastResponse = response;
-        _bookingId = (lastResponse.data as Booking).bookingId;
+        _bookingId = (lastResponse.data as Booking).id;
         print('Successfully booked seat: $seatNumber');
       }
 

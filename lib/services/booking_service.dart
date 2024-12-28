@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketBus/constant.dart';
 import '../models/api_response.dart';
 import '../models/booking.dart';
+import 'user_service.dart';
 
 class BookingService {
   Future<ApiResponse> createBooking({
@@ -12,59 +13,51 @@ class BookingService {
     required double totalPrice,
   }) async {
     ApiResponse apiResponse = ApiResponse();
+
     try {
-      print('=== Creating Booking ===');
+      print('=== Starting Booking Process ===');
       print('Schedule ID: $scheduleId');
       print('Seat Number: $seatNumber');
       print('Total Price: $totalPrice');
 
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
-      if (token == null) {
-        throw Exception('Sesi telah berakhir. Silakan login kembali.');
-      }
+      String token = await getToken();
 
       final response = await http.post(
-        Uri.parse(bookingURL),
+        Uri.parse('$baseURL/bookings'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $token'
         },
         body: jsonEncode({
           'schedule_id': scheduleId,
-          'seat_number': seatNumber,
-          'status': 'pending'
+          'seat_number': seatNumber.toString(),
+          'total_price': totalPrice,
+          'status': 'pending',
+          'payment_status': 'unpaid',
         }),
       );
 
-      print('Create Booking URL: $bookingURL');
-      print('Request Body: ${jsonEncode({
-            'schedule_id': scheduleId,
-            'seat_number': seatNumber,
-            'status': 'pending'
-          })}');
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      print('Booking Response Status: ${response.statusCode}');
+      print('Booking Response Body: ${response.body}');
 
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
+      if (response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
         if (responseData['status'] == 'success') {
           final bookingData = responseData['data']['booking'];
           apiResponse.data = Booking.fromJson(bookingData);
-          print('Booking created successfully');
         } else {
-          throw Exception(responseData['message'] ?? 'Gagal membuat pemesanan');
+          throw Exception(responseData['message'] ?? 'Booking failed');
         }
       } else {
-        throw Exception(responseData['message'] ?? 'Gagal membuat pemesanan');
+        final responseBody = jsonDecode(response.body);
+        throw Exception(responseBody['message'] ?? 'Booking failed');
       }
     } catch (e) {
-      print('Exception in createBooking: $e');
+      print('Error creating booking: $e');
       apiResponse.error = e.toString().replaceAll('Exception: ', '');
     }
+
     return apiResponse;
   }
 
@@ -239,6 +232,153 @@ class BookingService {
       print('Exception in checkSeatAvailability: $e');
       apiResponse.error = 'Gagal memeriksa ketersediaan kursi';
     }
+    return apiResponse;
+  }
+
+  Future<ApiResponse> getBookingDetails(String bookingId) async {
+    ApiResponse apiResponse = ApiResponse();
+
+    try {
+      String token = await getToken();
+      final response = await http.get(
+        Uri.parse('$baseURL/bookings/$bookingId'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      print('Booking Details Response Status: ${response.statusCode}');
+      print('Booking Details Response Body: ${response.body}');
+
+      switch (response.statusCode) {
+        case 200:
+          final responseData = jsonDecode(response.body);
+          if (responseData['status'] == 'success') {
+            apiResponse.data = Booking.fromJson(responseData['data']);
+          } else {
+            throw Exception(
+                responseData['message'] ?? 'Gagal memuat detail booking');
+          }
+          break;
+        case 401:
+          apiResponse.error = 'Sesi telah berakhir. Silakan login kembali';
+          break;
+        case 404:
+          apiResponse.error = 'Booking tidak ditemukan';
+          break;
+        default:
+          apiResponse.error = 'Terjadi kesalahan. Silakan coba lagi';
+          break;
+      }
+    } catch (e) {
+      print('Error getting booking details: $e');
+      apiResponse.error = 'Terjadi kesalahan pada server';
+    }
+
+    return apiResponse;
+  }
+
+  Future<String> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Token tidak ditemukan');
+    }
+
+    print('Retrieved token from storage: ${token.substring(0, 20)}...');
+    return token;
+  }
+
+  Future<ApiResponse> getActiveBookings() async {
+    ApiResponse apiResponse = ApiResponse();
+
+    try {
+      String token = await getToken();
+      print('Fetching active bookings with token...');
+
+      final response = await http.get(
+        Uri.parse('$baseURL/bookings'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+      );
+
+      print('Bookings Response Status: ${response.statusCode}');
+      print('Bookings Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        print('Parsed response data: $responseData');
+
+        if (responseData['data'] != null) {
+          List<Booking> bookings = [];
+          for (var item in responseData['data']) {
+            try {
+              print('Processing booking item: $item');
+              final booking = Booking.fromJson(item);
+              print(
+                  'Booking parsed - Code: ${booking.bookingCode}, Status: ${booking.status}, Payment Status: ${booking.paymentStatus}');
+              bookings.add(booking);
+            } catch (e) {
+              print('Error parsing booking item: $e');
+            }
+          }
+          apiResponse.data = bookings;
+          print('Successfully processed ${bookings.length} bookings');
+        } else {
+          print('No bookings data found in response');
+          apiResponse.data = [];
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Sesi telah berakhir. Silakan login kembali');
+      } else {
+        throw Exception('Gagal memuat tiket');
+      }
+    } catch (e) {
+      print('Error in getActiveBookings: $e');
+      apiResponse.error = e.toString().replaceAll('Exception: ', '');
+    }
+
+    return apiResponse;
+  }
+
+  Future<ApiResponse> checkPaymentStatus(String bookingId) async {
+    ApiResponse apiResponse = ApiResponse();
+
+    try {
+      String token = await getToken();
+      print('Checking payment status for booking ID: $bookingId');
+
+      final response = await http.get(
+        Uri.parse('$baseURL/bookings/$bookingId/payment-status'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+      );
+
+      print('Payment status check response: ${response.statusCode}');
+      print('Payment status response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final status = responseData['status'] ?? responseData['payment_status'];
+        print('Parsed payment status: $status');
+        apiResponse.data = status;
+      } else {
+        print('Error response from payment status check');
+        throw Exception('Gagal memeriksa status pembayaran');
+      }
+    } catch (e) {
+      print('Error checking payment status: $e');
+      apiResponse.error = e.toString();
+    }
+
     return apiResponse;
   }
 }

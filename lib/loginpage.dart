@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiketBus/models/api_response.dart';
+import 'package:tiketBus/pages/homepage.dart';
 import 'package:tiketBus/registerpage.dart';
 import 'package:tiketBus/services/user_service.dart';
 
@@ -23,35 +24,66 @@ class _LoginPageState extends State<LoginPage> {
   bool loading = false;
 
   void _loginUser() async {
-    ApiResponse response = await login(txtEmail.text, txtPassword.text);
-
-    if (response.error == null && response.data != null) {
-      // Login berhasil
-      final responseData = response.data as Map<String, dynamic>;
-
-      // Simpan data user ke SharedPreferences
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', responseData['token'] ?? '');
-      if (responseData['user'] != null) {
-        await prefs.setInt('id', responseData['user']['id'] ?? 0);
-        await prefs.setString('name', responseData['user']['name'] ?? '');
-        await prefs.setString('email', responseData['user']['email'] ?? '');
-        await prefs.setString('phone', responseData['user']['phone'] ?? '');
-      }
-
-      // Navigate to HomePage
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => HomePage()),
-            (route) => false);
-      }
-    } else {
+    try {
       setState(() {
-        loading = false;
+        loading = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${response.error}')),
-      );
+
+      print('Starting login process...');
+      ApiResponse response = await login(txtEmail.text, txtPassword.text);
+      print('Login response received');
+
+      if (!mounted) return;
+
+      if (response.error == null) {
+        print('Login successful, verifying token...');
+
+        // Tunggu sebentar untuk memastikan token tersimpan
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Verifikasi token
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token');
+        print('Verified token after login: $token');
+
+        if (token == null || token.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gagal menyimpan sesi login'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const HomePage1()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${response.error}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error in login process: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 

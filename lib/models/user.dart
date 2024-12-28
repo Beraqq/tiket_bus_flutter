@@ -4,6 +4,8 @@ class User {
   String? email;
   String? phone;
   String? token;
+  String? createdAt;
+  String? updatedAt;
 
   User({
     this.id,
@@ -11,9 +13,10 @@ class User {
     this.email,
     this.phone,
     this.token,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  // Tambahkan factory method untuk membuat User dari JSON
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],
@@ -21,10 +24,11 @@ class User {
       email: json['email'],
       phone: json['phone'],
       token: json['token'],
+      createdAt: json['created_at'],
+      updatedAt: json['updated_at'],
     );
   }
 
-  // Tambahkan method untuk mengkonversi User ke JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -32,6 +36,8 @@ class User {
       'email': email,
       'phone': phone,
       'token': token,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
     };
   }
 }
