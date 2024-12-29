@@ -138,7 +138,7 @@ class _LoginPageState extends State<LoginPage> {
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'Sign In',
+                            'Login',
                             style: TextStyle(
                               fontSize:
                                   24, // Increased font size for better readability
@@ -213,7 +213,7 @@ class _LoginPageState extends State<LoginPage> {
                                 );
                               },
                               child: const Text(
-                                'Sign Up',
+                                'Register',
                                 style: TextStyle(
                                   color: Colors.blue,
                                   fontWeight: FontWeight.bold,

@@ -10,6 +10,7 @@ const String scheduleURL = baseURL + '/schedules';
 const String busURL = baseURL + '/buses';
 const String bookingURL = baseURL + '/bookings';
 const String paymentURL = baseURL + '/payments';
+const String historyURL = baseURL + '/history';
 
 // Error messages
 const String serverError = 'Terjadi kesalahan pada server';

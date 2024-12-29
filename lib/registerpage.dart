@@ -304,7 +304,7 @@ class _RegisterpageState extends State<Registerpage> {
                         child: _loading
                             ? const CircularProgressIndicator(
                                 color: Colors.white)
-                            : const Text('Daftar'),
+                            : const Text('Register'),
                       ),
                     ),
                   ),
@@ -318,7 +318,7 @@ class _RegisterpageState extends State<Registerpage> {
                         );
                       },
                       child: const Text(
-                        'Sudah punya akun? Sign in',
+                        'Sudah punya akun? Login',
                         style: TextStyle(
                           color: Color.fromARGB(255, 114, 195, 253),
                         ),
