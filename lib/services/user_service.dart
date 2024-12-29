@@ -269,3 +269,29 @@ Future<bool> isLoggedIn() async {
     return false;
   }
 }
+
+// Tambahkan fungsi untuk forgot password
+Future<ApiResponse> forgotPassword(String email) async {
+  ApiResponse apiResponse = ApiResponse();
+  try {
+    final response = await http.post(
+      Uri.parse('$baseURL/forgot-password'),
+      headers: {'Accept': 'application/json'},
+      body: {'email': email},
+    );
+
+    print('Forgot Password Response Status: ${response.statusCode}');
+    print('Forgot Password Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      apiResponse.data = responseData['message'];
+    } else {
+      final responseData = jsonDecode(response.body);
+      apiResponse.error = responseData['message'] ?? 'Terjadi kesalahan';
+    }
+  } catch (e) {
+    apiResponse.error = 'Terjadi kesalahan. Silakan coba lagi.';
+  }
+  return apiResponse;
+}

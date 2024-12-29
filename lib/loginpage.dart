@@ -6,6 +6,7 @@ import 'package:tiketBus/registerpage.dart';
 import 'package:tiketBus/services/user_service.dart';
 
 import 'constant.dart';
+import 'forgotpassword.dart';
 import 'homepage.dart';
 import 'models/user.dart';
 
@@ -200,7 +201,7 @@ class _LoginPageState extends State<LoginPage> {
                                 child: const Text('Login'),
                               ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -214,6 +215,30 @@ class _LoginPageState extends State<LoginPage> {
                               },
                               child: const Text(
                                 'Register',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ForgotPasswordPage(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Lupa Password?',
                                 style: TextStyle(
                                   color: Colors.blue,
                                   fontWeight: FontWeight.bold,
